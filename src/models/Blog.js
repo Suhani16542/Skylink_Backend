@@ -124,6 +124,25 @@ const blogSchema = new mongoose.Schema(
       default: '',
       trim: true,
     },
+    images: [
+      {
+        url: {
+          type: String,
+          default: '',
+          trim: true,
+        },
+        alt: {
+          type: String,
+          default: '',
+          trim: true,
+        },
+        publicId: {
+          type: String,
+          default: '',
+          trim: true,
+        },
+      },
+    ],
     publishedAt: {
       type: Date,
       default: null,
@@ -193,6 +212,48 @@ blogSchema.pre('validate', function (next) {
     this.estimatedReadTime = calculateReadingTime(this.content);
   } else if (!this.estimatedReadTime) {
     this.estimatedReadTime = '5 min read';
+  }
+
+  // Synchronize featuredImage and images array
+  if (Array.isArray(this.images) && this.images.length > 0) {
+    this.images = this.images
+      .map((img) => {
+        if (typeof img === 'string') {
+          return {
+            url: img.trim(),
+            alt: this.imageAltText || '',
+            publicId: '',
+          };
+        } else if (img && typeof img === 'object') {
+          return {
+            url: (img.url || '').trim(),
+            alt: (img.alt || this.imageAltText || '').trim(),
+            publicId: (img.publicId || '').trim(),
+          };
+        }
+        return null;
+      })
+      .filter((img) => img && img.url);
+
+    // If featuredImage.url is empty and we have images, use the first image as featuredImage
+    if ((!this.featuredImage || !this.featuredImage.url) && this.images.length > 0) {
+      this.featuredImage = {
+        url: this.images[0].url,
+        publicId: this.images[0].publicId || '',
+      };
+      if (!this.featuredImagePublicId && this.images[0].publicId) {
+        this.featuredImagePublicId = this.images[0].publicId;
+      }
+    }
+  } else if (this.featuredImage?.url) {
+    // If featuredImage exists but images array is empty, populate images with featuredImage
+    this.images = [
+      {
+        url: this.featuredImage.url,
+        alt: this.imageAltText || '',
+        publicId: this.featuredImage.publicId || this.featuredImagePublicId || '',
+      },
+    ];
   }
 
   // Synchronize featuredImage.publicId and featuredImagePublicId

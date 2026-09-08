@@ -80,6 +80,7 @@ export const createBlog = async (req, res, next) => {
       featuredImage,
       featuredImagePublicId,
       imageAltText,
+      images,
       category,
       technology,
       keywords,
@@ -108,6 +109,7 @@ export const createBlog = async (req, res, next) => {
       featuredImage,
       featuredImagePublicId,
       imageAltText,
+      images,
       category,
       technology,
       keywords,
@@ -326,28 +328,44 @@ export const deleteBlog = async (req, res, next) => {
 
 /**
  * @route   POST /api/blogs/upload-image
- * @desc    Upload an image for a blog to Cloudinary
+ * @desc    Upload single or multiple images for a blog to Cloudinary
  * @access  Private (Admin)
  */
 export const uploadImage = async (req, res, next) => {
   try {
-    if (!req.file) {
+    let files = [];
+    if (Array.isArray(req.files) && req.files.length > 0) {
+      files = req.files;
+    } else if (req.file) {
+      files = [req.file];
+    } else if (req.files && typeof req.files === 'object') {
+      const allFiles = Object.values(req.files).flat();
+      if (allFiles.length > 0) {
+        files = allFiles;
+      }
+    }
+
+    if (files.length === 0) {
       return res.status(400).json({
         success: false,
-        message: 'Please upload an image file (JPG, PNG, WEBP).',
+        message: 'Please upload at least one image file (JPG, PNG, WEBP).',
       });
     }
 
-    const result = await blogService.uploadBlogImage(req.file.buffer);
+    const buffers = files.map((f) => f.buffer);
+    const result = await blogService.uploadBlogImages(buffers);
 
     return res.status(200).json({
       success: true,
-      message: 'Image uploaded successfully',
+      message: `${files.length > 1 ? `${files.length} images` : 'Image'} uploaded successfully`,
+      images: result.images,
       data: {
         url: result.url,
-        imageUrl: result.url,
-        secure_url: result.url,
+        imageUrl: result.imageUrl,
+        secure_url: result.secure_url,
         publicId: result.publicId,
+        images: result.images,
+        imageData: result.imageData,
       },
     });
   } catch (error) {

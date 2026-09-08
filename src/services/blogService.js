@@ -85,6 +85,39 @@ const normalizeBlogPayload = (payload) => {
     normalized.tags = normalizeArray(normalized.tags);
   }
 
+  // Normalize images array
+  if (Array.isArray(normalized.images)) {
+    normalized.images = normalized.images
+      .map((img) => {
+        if (typeof img === 'string') {
+          return {
+            url: img.trim(),
+            alt: normalized.imageAltText || '',
+            publicId: '',
+          };
+        } else if (img && typeof img === 'object') {
+          return {
+            url: (img.url || '').trim(),
+            alt: (img.alt || normalized.imageAltText || '').trim(),
+            publicId: (img.publicId || '').trim(),
+          };
+        }
+        return null;
+      })
+      .filter((img) => img && img.url);
+
+    // If featuredImage is not provided, use the first image from images array
+    if ((!normalized.featuredImage || !normalized.featuredImage.url) && normalized.images.length > 0) {
+      normalized.featuredImage = {
+        url: normalized.images[0].url,
+        publicId: normalized.images[0].publicId || '',
+      };
+      if (!normalized.featuredImagePublicId && normalized.images[0].publicId) {
+        normalized.featuredImagePublicId = normalized.images[0].publicId;
+      }
+    }
+  }
+
   // Normalize featuredImage if passed as string URL
   if (typeof normalized.featuredImage === 'string') {
     normalized.featuredImage = {
@@ -100,6 +133,17 @@ const normalizeBlogPayload = (payload) => {
   // Sync featuredImagePublicId if publicId is in featuredImage
   if (normalized.featuredImage?.publicId && !normalized.featuredImagePublicId) {
     normalized.featuredImagePublicId = normalized.featuredImage.publicId;
+  }
+
+  // If images array is empty or not provided but featuredImage exists, populate images
+  if ((!Array.isArray(normalized.images) || normalized.images.length === 0) && normalized.featuredImage?.url) {
+    normalized.images = [
+      {
+        url: normalized.featuredImage.url,
+        alt: normalized.imageAltText || '',
+        publicId: normalized.featuredImage.publicId || normalized.featuredImagePublicId || '',
+      },
+    ];
   }
 
   // Calculate estimated reading time if content is provided and reading time is not
@@ -515,10 +559,18 @@ export const deleteBlog = async (id) => {
     throw error;
   }
 
-  // Remove image from Cloudinary if it exists
-  const publicId = blog.featuredImage?.publicId || blog.featuredImagePublicId;
-  if (publicId) {
-    await deleteImageFromCloudinary(publicId);
+  // Remove all images from Cloudinary if public IDs exist
+  const publicIds = new Set();
+  if (blog.featuredImage?.publicId) publicIds.add(blog.featuredImage.publicId);
+  if (blog.featuredImagePublicId) publicIds.add(blog.featuredImagePublicId);
+  if (Array.isArray(blog.images)) {
+    blog.images.forEach((img) => {
+      if (img.publicId) publicIds.add(img.publicId);
+    });
+  }
+
+  for (const pid of publicIds) {
+    await deleteImageFromCloudinary(pid);
   }
 
   await Blog.findByIdAndDelete(id);
@@ -527,16 +579,44 @@ export const deleteBlog = async (id) => {
 };
 
 /**
- * Upload image buffer to Cloudinary
+ * Upload single or multiple image buffers to Cloudinary
+ *
+ * @param {Buffer|Buffer[]} fileBuffers
+ * @returns {Promise<{ url: string, publicId: string, imageUrl: string, secure_url: string, images: string[], imageData: Array<{ url: string, publicId: string }> }>}
  */
-export const uploadBlogImage = async (fileBuffer) => {
-  if (!fileBuffer) {
+export const uploadBlogImages = async (fileBuffers) => {
+  const buffers = Array.isArray(fileBuffers) ? fileBuffers : [fileBuffers];
+
+  if (buffers.length === 0 || !buffers[0]) {
     const error = new Error('No image file provided');
     error.statusCode = 400;
     throw error;
   }
 
-  return await uploadImageToCloudinary(fileBuffer, 'skylink/blogs');
+  const uploadPromises = buffers.map((buf) => uploadImageToCloudinary(buf, 'skylink/blogs'));
+  const results = await Promise.all(uploadPromises);
+
+  const images = results.map((r) => r.url);
+  const imageData = results.map((r) => ({
+    url: r.url,
+    publicId: r.publicId,
+  }));
+
+  return {
+    url: results[0].url,
+    publicId: results[0].publicId,
+    imageUrl: results[0].url,
+    secure_url: results[0].url,
+    images,
+    imageData,
+  };
+};
+
+/**
+ * Upload single image buffer to Cloudinary (for backward compatibility)
+ */
+export const uploadBlogImage = async (fileBuffer) => {
+  return await uploadBlogImages(fileBuffer);
 };
 
 export default {
@@ -550,4 +630,5 @@ export default {
   updateBlogFeatured,
   deleteBlog,
   uploadBlogImage,
+  uploadBlogImages,
 };

@@ -32,21 +32,30 @@ export const upload = multer({
 });
 
 /**
- * Flexible middleware that accepts any single image uploaded under common field names:
- * 'image', 'featuredImage', 'coverImage', 'file', 'media'
+ * Flexible middleware that accepts multiple images (up to 10) uploaded under common field names:
+ * 'images', 'image', 'featuredImage', 'featuredImages', 'coverImage', 'files', 'file', 'media'
  */
-export const uploadSingleImage = (req, res, next) => {
+export const uploadMultipleImages = (req, res, next) => {
   const uploader = upload.fields([
-    { name: 'image', maxCount: 1 },
-    { name: 'featuredImage', maxCount: 1 },
-    { name: 'coverImage', maxCount: 1 },
-    { name: 'file', maxCount: 1 },
-    { name: 'media', maxCount: 1 },
+    { name: 'image', maxCount: 10 },
+    { name: 'images', maxCount: 10 },
+    { name: 'featuredImage', maxCount: 10 },
+    { name: 'featuredImages', maxCount: 10 },
+    { name: 'coverImage', maxCount: 10 },
+    { name: 'file', maxCount: 10 },
+    { name: 'files', maxCount: 10 },
+    { name: 'media', maxCount: 10 },
   ]);
 
   uploader(req, res, (err) => {
     if (err) {
       if (err instanceof multer.MulterError) {
+        if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+          return res.status(400).json({
+            success: false,
+            message: 'Too many files uploaded. Maximum 10 images allowed per request.',
+          });
+        }
         return res.status(400).json({
           success: false,
           message: err.message,
@@ -58,22 +67,54 @@ export const uploadSingleImage = (req, res, next) => {
       });
     }
 
-    if (req.files) {
-      const extractedFile =
-        req.files.image?.[0] ||
-        req.files.featuredImage?.[0] ||
-        req.files.coverImage?.[0] ||
-        req.files.file?.[0] ||
-        req.files.media?.[0] ||
-        (Array.isArray(req.files) ? req.files[0] : null);
+    let extractedFiles = [];
 
-      if (extractedFile) {
-        req.file = extractedFile;
+    if (req.files) {
+      if (Array.isArray(req.files)) {
+        extractedFiles = req.files;
+      } else {
+        const fieldNames = [
+          'image',
+          'images',
+          'featuredImage',
+          'featuredImages',
+          'coverImage',
+          'file',
+          'files',
+          'media',
+        ];
+        for (const field of fieldNames) {
+          if (Array.isArray(req.files[field])) {
+            extractedFiles.push(...req.files[field]);
+          }
+        }
       }
+    }
+
+    if (req.file) {
+      extractedFiles.push(req.file);
+    }
+
+    if (extractedFiles.length > 10) {
+      return res.status(400).json({
+        success: false,
+        message: 'Too many files uploaded. Maximum 10 images allowed per request.',
+      });
+    }
+
+    req.files = extractedFiles;
+    if (extractedFiles.length > 0) {
+      req.file = extractedFiles[0]; // for single-file consumers
     }
 
     next();
   });
 };
+
+/**
+ * Flexible middleware that accepts any single image uploaded under common field names:
+ * 'image', 'featuredImage', 'coverImage', 'file', 'media'
+ */
+export const uploadSingleImage = uploadMultipleImages;
 
 export default upload;

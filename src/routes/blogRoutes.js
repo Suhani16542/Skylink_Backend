@@ -12,7 +12,7 @@ import {
   uploadImage,
 } from '../controllers/blogController.js';
 import { protect } from '../middleware/authMiddleware.js';
-import upload, { uploadSingleImage } from '../middleware/uploadMiddleware.js';
+import upload, { uploadSingleImage, uploadMultipleImages } from '../middleware/uploadMiddleware.js';
 
 const router = Router();
 
@@ -20,8 +20,8 @@ const router = Router();
 // 1. Admin Specific Routes (Must come before dynamic :id / :slug)
 // ==========================================
 
-// Image Upload Endpoint
-router.post('/upload-image', protect, uploadSingleImage, uploadImage);
+// Image Upload Endpoint (supports single or multiple images)
+router.post('/upload-image', protect, uploadMultipleImages, uploadImage);
 
 // Admin List All Blogs (drafts + published)
 router.get('/admin', protect, getAdminBlogs);
