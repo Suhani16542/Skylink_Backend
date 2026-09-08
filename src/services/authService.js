@@ -28,8 +28,11 @@ export const loginAdmin = async (email, password) => {
     throw error;
   }
 
+  const cleanEmail = typeof email === 'string' ? email.toLowerCase().trim() : email;
+  const cleanPassword = typeof password === 'string' ? password.trim() : password;
+
   // Find admin by email
-  const admin = await Admin.findOne({ email: email.toLowerCase().trim() });
+  const admin = await Admin.findOne({ email: cleanEmail });
 
   if (!admin) {
     const error = new Error('Invalid email or password');
@@ -37,8 +40,11 @@ export const loginAdmin = async (email, password) => {
     throw error;
   }
 
-  // Verify password using bcrypt method on Admin model
-  const isMatch = await admin.comparePassword(password);
+  // Verify password using bcrypt method on Admin model (clean trimmed first, fallback to raw)
+  let isMatch = await admin.comparePassword(cleanPassword);
+  if (!isMatch && typeof password === 'string' && password !== cleanPassword) {
+    isMatch = await admin.comparePassword(password);
+  }
 
   if (!isMatch) {
     const error = new Error('Invalid email or password');
@@ -93,24 +99,27 @@ export const seedAdmin = async (email, password) => {
     throw new Error('ADMIN_EMAIL and ADMIN_PASSWORD must be provided');
   }
 
-  const existingAdmin = await Admin.findOne({ email: email.toLowerCase().trim() });
+  const cleanEmail = typeof email === 'string' ? email.toLowerCase().trim() : email;
+  const cleanPassword = typeof password === 'string' ? password.trim() : password;
+
+  const existingAdmin = await Admin.findOne({ email: cleanEmail });
   if (existingAdmin) {
     return {
       created: false,
-      message: `Admin with email "${email}" already exists.`,
+      message: `Admin with email "${cleanEmail}" already exists.`,
     };
   }
 
   const newAdmin = new Admin({
-    email: email.toLowerCase().trim(),
-    password, // Password is automatically hashed by Mongoose pre-save hook in Admin model
+    email: cleanEmail,
+    password: cleanPassword, // Password is automatically hashed by Mongoose pre-save hook in Admin model
   });
 
   await newAdmin.save();
 
   return {
     created: true,
-    message: `Admin account "${email}" created successfully.`,
+    message: `Admin account "${cleanEmail}" created successfully.`,
     admin: {
       id: newAdmin._id,
       email: newAdmin.email,

@@ -16,7 +16,10 @@ const seedAdminAccount = async () => {
     process.exit(1);
   }
 
-  if (password.length < 6) {
+  const normalizedEmail = email.toLowerCase().trim();
+  const normalizedPassword = password.trim();
+
+  if (normalizedPassword.length < 6) {
     console.error('❌ Error: ADMIN_PASSWORD must be at least 6 characters long.');
     process.exit(1);
   }
@@ -28,7 +31,6 @@ const seedAdminAccount = async () => {
       process.exit(1);
     }
 
-    const normalizedEmail = email.toLowerCase().trim();
     const existingAdmin = await Admin.findOne({ email: normalizedEmail });
 
     if (existingAdmin) {
@@ -36,7 +38,7 @@ const seedAdminAccount = async () => {
     } else {
       const admin = new Admin({
         email: normalizedEmail,
-        password: password, // Mongoose pre-save hook in Admin.js automatically hashes this with bcrypt
+        password: normalizedPassword, // Mongoose pre-save hook in Admin.js automatically hashes this with bcrypt
       });
 
       await admin.save();

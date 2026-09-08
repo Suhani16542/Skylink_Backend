@@ -16,7 +16,10 @@ export const login = async (req, res, next) => {
       });
     }
 
-    const result = await loginAdmin(email, password);
+    const cleanEmail = typeof email === 'string' ? email.trim() : email;
+    const cleanPassword = typeof password === 'string' ? password.trim() : password;
+
+    const result = await loginAdmin(cleanEmail, cleanPassword);
 
     return res.status(200).json({
       success: true,
