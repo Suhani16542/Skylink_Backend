@@ -345,6 +345,8 @@ export const uploadImage = async (req, res, next) => {
       message: 'Image uploaded successfully',
       data: {
         url: result.url,
+        imageUrl: result.url,
+        secure_url: result.url,
         publicId: result.publicId,
       },
     });

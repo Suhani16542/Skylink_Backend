@@ -31,4 +31,49 @@ export const upload = multer({
   fileFilter,
 });
 
+/**
+ * Flexible middleware that accepts any single image uploaded under common field names:
+ * 'image', 'featuredImage', 'coverImage', 'file', 'media'
+ */
+export const uploadSingleImage = (req, res, next) => {
+  const uploader = upload.fields([
+    { name: 'image', maxCount: 1 },
+    { name: 'featuredImage', maxCount: 1 },
+    { name: 'coverImage', maxCount: 1 },
+    { name: 'file', maxCount: 1 },
+    { name: 'media', maxCount: 1 },
+  ]);
+
+  uploader(req, res, (err) => {
+    if (err) {
+      if (err instanceof multer.MulterError) {
+        return res.status(400).json({
+          success: false,
+          message: err.message,
+        });
+      }
+      return res.status(err.statusCode || 400).json({
+        success: false,
+        message: err.message,
+      });
+    }
+
+    if (req.files) {
+      const extractedFile =
+        req.files.image?.[0] ||
+        req.files.featuredImage?.[0] ||
+        req.files.coverImage?.[0] ||
+        req.files.file?.[0] ||
+        req.files.media?.[0] ||
+        (Array.isArray(req.files) ? req.files[0] : null);
+
+      if (extractedFile) {
+        req.file = extractedFile;
+      }
+    }
+
+    next();
+  });
+};
+
 export default upload;

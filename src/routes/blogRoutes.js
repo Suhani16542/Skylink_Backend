@@ -12,7 +12,7 @@ import {
   uploadImage,
 } from '../controllers/blogController.js';
 import { protect } from '../middleware/authMiddleware.js';
-import upload from '../middleware/uploadMiddleware.js';
+import upload, { uploadSingleImage } from '../middleware/uploadMiddleware.js';
 
 const router = Router();
 
@@ -21,7 +21,7 @@ const router = Router();
 // ==========================================
 
 // Image Upload Endpoint
-router.post('/upload-image', protect, upload.single('image'), uploadImage);
+router.post('/upload-image', protect, uploadSingleImage, uploadImage);
 
 // Admin List All Blogs (drafts + published)
 router.get('/admin', protect, getAdminBlogs);
