@@ -71,9 +71,21 @@ const blogSchema = new mongoose.Schema(
       index: true,
     },
     author: {
-      type: String,
-      default: 'Skylink Team',
-      trim: true,
+      name: {
+        type: String,
+        default: 'Skylink Team',
+        trim: true,
+      },
+      role: {
+        type: String,
+        default: 'EXIM & Logistics Specialist',
+        trim: true,
+      },
+      avatar: {
+        type: String,
+        default: '',
+        trim: true,
+      },
     },
     estimatedReadTime: {
       type: String,
@@ -129,8 +141,41 @@ blogSchema.virtual('excerpt').get(function () {
   return this.shortDescription;
 });
 
+// Virtual field for 'authorName' pointing to author.name for frontend compatibility
+blogSchema.virtual('authorName').get(function () {
+  if (this.author && typeof this.author === 'object') {
+    return this.author.name || 'Skylink Team';
+  }
+  return typeof this.author === 'string' ? this.author : 'Skylink Team';
+});
+
 // Pre-save / pre-validate hook to format fields, slug, reading time & publishedAt
 blogSchema.pre('validate', function (next) {
+  // Normalize status if string provided with varying case
+  if (typeof this.status === 'string') {
+    const s = this.status.toLowerCase().trim();
+    if (s === 'published' || s === 'publish') {
+      this.status = 'published';
+    } else {
+      this.status = 'draft';
+    }
+  }
+
+  // Normalize author if string was provided
+  if (typeof this.author === 'string') {
+    this.author = {
+      name: this.author.trim() || 'Skylink Team',
+      role: 'EXIM & Logistics Specialist',
+      avatar: '',
+    };
+  } else if (!this.author) {
+    this.author = {
+      name: 'Skylink Team',
+      role: 'EXIM & Logistics Specialist',
+      avatar: '',
+    };
+  }
+
   // Format slug
   if (this.slug) {
     this.slug = slugify(this.slug);
@@ -168,7 +213,8 @@ blogSchema.index({
   technology: 'text',
   keywords: 'text',
   tags: 'text',
-  author: 'text',
+  'author.name': 'text',
+  'author.role': 'text',
 });
 
 const Blog = mongoose.model('Blog', blogSchema);

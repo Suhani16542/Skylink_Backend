@@ -35,9 +35,43 @@ const normalizeBlogPayload = (payload) => {
     normalized.shortDescription = normalized.excerpt;
   }
 
-  // Support 'authorName' as alias for 'author'
-  if (!normalized.author && normalized.authorName) {
-    normalized.author = normalized.authorName;
+  // Normalize author
+  if (typeof normalized.author === 'string') {
+    normalized.author = {
+      name: normalized.author.trim() || normalized.authorName?.trim() || 'Skylink Team',
+      role: 'EXIM & Logistics Specialist',
+      avatar: '',
+    };
+  } else if (normalized.author && typeof normalized.author === 'object') {
+    normalized.author = {
+      name: (normalized.author.name || normalized.authorName || 'Skylink Team').trim(),
+      role: (normalized.author.role || 'EXIM & Logistics Specialist').trim(),
+      avatar: (normalized.author.avatar || '').trim(),
+    };
+  } else if (normalized.authorName) {
+    normalized.author = {
+      name: normalized.authorName.trim(),
+      role: 'EXIM & Logistics Specialist',
+      avatar: '',
+    };
+  } else if (!normalized.author) {
+    normalized.author = {
+      name: 'Skylink Team',
+      role: 'EXIM & Logistics Specialist',
+      avatar: '',
+    };
+  }
+
+  // Normalize status (supports 'Published', 'Draft', 'published', 'draft', etc.)
+  if (typeof normalized.status === 'string') {
+    const s = normalized.status.toLowerCase().trim();
+    if (s === 'published' || s === 'publish') {
+      normalized.status = 'published';
+    } else {
+      normalized.status = 'draft';
+    }
+  } else if (!normalized.status) {
+    normalized.status = 'draft';
   }
 
   // Normalize arrays
@@ -186,6 +220,8 @@ export const getPublicBlogs = async ({
       { technology: searchRegex },
       { keywords: searchRegex },
       { tags: searchRegex },
+      { 'author.name': searchRegex },
+      { 'author.role': searchRegex },
       { author: searchRegex },
     ];
   }
@@ -267,8 +303,11 @@ export const getAdminBlogs = async ({
   const skip = (pageNum - 1) * limitNum;
   const query = {};
 
-  if (status && ['draft', 'published'].includes(status)) {
-    query.status = status;
+  if (status) {
+    const s = status.toLowerCase().trim();
+    if (['draft', 'published'].includes(s)) {
+      query.status = s;
+    }
   }
 
   if (category) {
@@ -396,7 +435,9 @@ export const updateBlog = async (id, updateData) => {
  * Update blog status (publish / unpublish)
  */
 export const updateBlogStatus = async (id, status) => {
-  if (!['draft', 'published'].includes(status)) {
+  const normalizedStatus = typeof status === 'string' ? status.toLowerCase().trim() : '';
+
+  if (!['draft', 'published'].includes(normalizedStatus)) {
     const error = new Error("Invalid status. Must be 'draft' or 'published'");
     error.statusCode = 400;
     throw error;
@@ -415,8 +456,8 @@ export const updateBlogStatus = async (id, status) => {
     throw error;
   }
 
-  const updateFields = { status };
-  if (status === 'published' && !existingBlog.publishedAt) {
+  const updateFields = { status: normalizedStatus };
+  if (normalizedStatus === 'published' && !existingBlog.publishedAt) {
     updateFields.publishedAt = new Date();
   }
 
