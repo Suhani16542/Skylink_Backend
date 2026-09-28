@@ -369,8 +369,9 @@ export const uploadImage = async (req, res, next) => {
       },
     });
   } catch (error) {
-    if (error.statusCode) {
-      return res.status(error.statusCode).json({
+    const statusCode = error.statusCode || error.http_code;
+    if (statusCode) {
+      return res.status(statusCode).json({
         success: false,
         message: error.message,
       });
