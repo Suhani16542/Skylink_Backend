@@ -7,6 +7,7 @@ import healthRoutes from './routes/healthRoutes.js';
 import authRoutes from './routes/authRoutes.js';
 import blogRoutes from './routes/blogRoutes.js';
 import formRoutes from './routes/formRoutes.js';
+import categoryRoutes from './routes/categoryRoutes.js';
 import notFoundMiddleware from './middleware/notFoundMiddleware.js';
 import errorMiddleware from './middleware/errorMiddleware.js';
 
@@ -40,6 +41,8 @@ app.use('/api', healthRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/blogs', blogRoutes);
 app.use('/api/forms', formRoutes);
+app.use('/api/v1/categories', categoryRoutes);
+app.use('/api/categories', categoryRoutes);
 
 // Root route
 app.get('/', (req, res) => {
